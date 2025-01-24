@@ -89,4 +89,5 @@ flutter:
   # see https://flutter.dev/to/font-from-package
 
   assets:
+    - assets/images/museum_cover.jpg
     - assets/images/

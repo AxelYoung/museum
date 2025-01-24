@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:museum/widgets/loading_sheet.dart'; // 确保导入正确的路径
+import 'dart:async';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -7,60 +9,38 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
   final ScrollController _mainScrollController = ScrollController();
-  final DraggableScrollableController _newsController = DraggableScrollableController();
-  bool _showNews = false;
-  DateTime? _belowThresholdTime;
+  double _scrollVelocity = 0.0;
+  late AnimationController _animationController;
+  bool hasPassedThreshold = false;
 
   @override
   void initState() {
     super.initState();
     _mainScrollController.addListener(_scrollListener);
-    _newsController.addListener(_newsScrollListener);
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
   }
 
   @override
   void dispose() {
+    _mainScrollController.removeListener(_scrollListener);
     _mainScrollController.dispose();
-    _newsController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
   void _scrollListener() {
-    if (_mainScrollController.position.pixels >= _mainScrollController.position.maxScrollExtent) {
-      if (!_showNews) {
-        setState(() {
-          _showNews = true;
-        });
-        // 自动展开到顶部
-        Future.delayed(const Duration(milliseconds: 100), () {
-          _newsController.animateTo(
-            0.9,
-            duration: const Duration(milliseconds: 500),
-            curve: Curves.easeOut,
-          );
-        });
+    if (_mainScrollController.position.atEdge) {
+      bool isBottom = _mainScrollController.position.pixels != 0;
+      if (isBottom) {
+        _animationController.forward();
       }
     }
-  }
-
-  void _newsScrollListener() {
-    if (_newsController.size < 0.6) {
-      if (_belowThresholdTime == null) {
-        _belowThresholdTime = DateTime.now();
-      } else {
-        final difference = DateTime.now().difference(_belowThresholdTime!);
-        if (difference.inSeconds >= 2) {
-          setState(() {
-            _showNews = false;
-          });
-          _belowThresholdTime = null;
-        }
-      }
-    } else {
-      _belowThresholdTime = null;
-    }
+    _scrollVelocity = _mainScrollController.position.activity?.velocity ?? 0.0;
   }
 
   void _showMuseumDialog(BuildContext context) {
@@ -130,31 +110,64 @@ class _HomePageState extends State<HomePage> {
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
           ),
-          alignment: Alignment.centerLeft,
-          child: Padding(
-            padding: const EdgeInsets.only(left: 8),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 200),
-              child: OutlinedButton.icon(
-                onPressed: () => _showMuseumDialog(context),
-                style: OutlinedButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(50),
+          child: Row(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 200),
+                  child: OutlinedButton.icon(
+                    onPressed: () => _showMuseumDialog(context),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(50),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      side: BorderSide.none,
+                      foregroundColor: Theme.of(context).colorScheme.onBackground,
+                    ),
+                    icon: const Icon(Icons.location_on),
+                    label: const Text(
+                      '三星堆博物馆',
+                      style: TextStyle(fontSize: 16),
+                    ),
                   ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                  side: BorderSide.none,
-                  foregroundColor: Theme.of(context).colorScheme.onBackground,
-                ),
-                icon: const Icon(Icons.location_on),
-                label: const Text(
-                  '三星堆博物馆',
-                  style: TextStyle(fontSize: 16),
                 ),
               ),
-            ),
+              const Spacer(),
+              Container(
+                margin: const EdgeInsets.only(right: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: Colors.grey.withOpacity(0.3),
+                    width: 1,
+                  ),
+                  borderRadius: BorderRadius.circular(50),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.circle,
+                      size: 8,
+                      color: Colors.grey,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '未配置',
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -164,6 +177,7 @@ class _HomePageState extends State<HomePage> {
           ListView(
             controller: _mainScrollController,
             padding: EdgeInsets.zero,
+            physics: const ClampingScrollPhysics(),
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -323,127 +337,82 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(
                       height: 100,
                     ),
+                    const SizedBox(height: 24),
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(24),
+                        color: Theme.of(context).colorScheme.surface,
+                      ),
+                      child: Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                '新闻界面',
+                                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                ),
+                              ),
+                            ),
+                          ),
+                          ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: 5, // 假设有5个新闻卡片
+                            itemBuilder: (context, index) {
+                              return Card(
+                                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                                      child: Image.asset(
+                                        'assets/images/museum_cover.jpg',
+                                        fit: BoxFit.cover,
+                                        height: 150,
+                                        width: double.infinity,
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '新闻标题 $index',
+                                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 5),
+                                          Text(
+                                            '这是新闻内容的简短描述。',
+                                            style: Theme.of(context).textTheme.bodyMedium,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
             ],
           ),
-          if (_showNews)
-            DraggableScrollableSheet(
-              controller: _newsController,
-              initialChildSize: 0.1,
-              minChildSize: 0.1,
-              maxChildSize: 0.9,
-              snap: true,
-              snapSizes: const [0.1, 0.5, 0.9],
-              builder: (context, scrollController) {
-                return Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(20),
-                      topRight: Radius.circular(20),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, -2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      GestureDetector(
-                        behavior: HitTestBehavior.translucent,
-                        onVerticalDragUpdate: (details) {
-                          final newSize = _newsController.size - details.delta.dy / MediaQuery.of(context).size.height;
-                          _newsController.jumpTo(
-                            newSize.clamp(0.1, 0.9),
-                          );
-                        },
-                        onVerticalDragEnd: (details) {
-                          final velocity = details.velocity.pixelsPerSecond.dy / MediaQuery.of(context).size.height;
-                          final currentSize = _newsController.size;
-                          
-                          if (velocity > 0 && currentSize < 0.6) {  // 向下滑动且低于阈值
-                            setState(() {
-                              _showNews = false;
-                            });
-                          } else {
-                            double targetSize;
-                            if (velocity.abs() > 1.0) {  // 快速滑动
-                              targetSize = velocity > 0 ? 0.1 : 0.9;
-                            } else {  // 慢速滑动，就近原则
-                              if (currentSize < 0.3) targetSize = 0.1;
-                              else if (currentSize < 0.7) targetSize = 0.5;
-                              else targetSize = 0.9;
-                            }
-                            
-                            _newsController.animateTo(
-                              targetSize,
-                              duration: const Duration(milliseconds: 200),
-                              curve: Curves.easeOut,
-                            );
-                          }
-                        },
-                        child: Column(
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 4,
-                              margin: const EdgeInsets.symmetric(vertical: 12),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.withOpacity(0.3),
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                children: [
-                                  const Text(
-                                    '博物馆新闻',
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  Icon(
-                                    Icons.keyboard_arrow_up,
-                                    color: Colors.grey.withOpacity(0.6),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: CustomScrollView(
-                          controller: scrollController,
-                          slivers: [
-                            SliverList(
-                              delegate: SliverChildBuilderDelegate(
-                                (context, index) {
-                                  return _NewsItem(
-                                    title: '博物馆新闻 ${index + 1}',
-                                    subtitle: '这是第 ${index + 1} 条新闻的简介，包含新闻的基本信息。',
-                                    date: '2024-01-${23 + index}',
-                                  );
-                                },
-                                childCount: 20,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -642,69 +611,6 @@ class _InfoCard extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NewsItem extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final String date;
-
-  const _NewsItem({
-    required this.title,
-    required this.subtitle,
-    required this.date,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () {},
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    date,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.8),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ),
         ),
       ),
