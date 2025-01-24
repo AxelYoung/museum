@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:museum/widgets/loading_sheet.dart'; // 确保导入正确的路径
+import 'guide_page.dart';
 import 'dart:async';
 
 class HomePage extends StatefulWidget {
@@ -65,9 +66,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   void _showGuideService(BuildContext context) {
-    // TODO: 显示讲解服务
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('讲解服务功能即将上线')),
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const GuidePage(),
+      ),
     );
   }
 
@@ -318,6 +320,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                             child: FloatingActionButton.small(
                               onPressed: () => _startGuide(context),
                               elevation: 2,
+                              heroTag: null,
                               backgroundColor: Theme.of(context).colorScheme.primary,
                               foregroundColor: Colors.white,
                               child: const Icon(
@@ -417,6 +420,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {},
+        heroTag: null,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
@@ -445,9 +449,7 @@ class _FeatureButton extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () {
-          onTap();
-        },
+        onTap: onTap,
         splashColor: colorScheme.primary.withOpacity(0.3),
         highlightColor: colorScheme.primary.withOpacity(0.2),
         child: Container(
