@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:museum/widgets/loading_sheet.dart'; // 确保导入正确的路径
 import 'guide_page.dart';
+import 'audio_guide.dart';
 import 'dart:async';
 
 class HomePage extends StatefulWidget {
@@ -418,13 +419,30 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {},
-        heroTag: null,
-        shape: RoundedRectangleBorder(
+      floatingActionButton: Hero(
+        tag: 'audio_guide_button',
+        child: Material(
+          color: Theme.of(context).colorScheme.primary,
           borderRadius: BorderRadius.circular(16),
+          child: InkWell(
+            onTap: () => Navigator.of(context).push(
+              PageRouteBuilder(
+                opaque: false,
+                pageBuilder: (context, _, __) => const AudioGuidePage(),
+              ),
+            ),
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              width: 56,
+              height: 56,
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.mic,
+                color: Colors.white,
+              ),
+            ),
+          ),
         ),
-        child: const Icon(Icons.mic),
       ),
     );
   }

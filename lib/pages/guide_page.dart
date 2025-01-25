@@ -4,6 +4,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'dart:math' as math;
+import 'dart:async';
 
 // 添加箭头画笔类
 class ArrowPainter extends CustomPainter {
@@ -31,7 +32,12 @@ class ArrowPainter extends CustomPainter {
 }
 
 class GuidePage extends StatefulWidget {
-  const GuidePage({super.key});
+  final bool isEmbedded;
+
+  const GuidePage({
+    super.key,
+    this.isEmbedded = false,
+  });
 
   @override
   State<GuidePage> createState() => _GuidePageState();
@@ -42,21 +48,22 @@ class _GuidePageState extends State<GuidePage> {
   bool _isCameraPermissionGranted = false;
   double _direction = 0.0;
   bool _hasCompass = false;
-  double _pitch = 0.0;  // 添加俯仰角度
+  double _pitch = 0.0;
+  StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
+  StreamSubscription<CompassEvent>? _compassSubscription;
 
   @override
   void initState() {
     super.initState();
     _checkPermissionsAndSensors();
-    _initAccelerometer();  // 初始化加速度传感器
+    _initAccelerometer();
   }
 
   void _initAccelerometer() {
-    accelerometerEvents.listen((AccelerometerEvent event) {
+    _accelerometerSubscription = accelerometerEvents.listen((AccelerometerEvent event) {
       if (mounted) {
         setState(() {
-          // 反转俯仰角度的方向
-          _pitch = -math.atan2(event.y, event.z) * 1.0;  // 添加负号来反转方向
+          _pitch = -math.atan2(event.y, event.z) * 1.0;
         });
       }
     });
@@ -81,13 +88,17 @@ class _GuidePageState extends State<GuidePage> {
   }
 
   Future<void> _checkPermissionsAndSensors() async {
-    // 检查指南针是否可用
     try {
       _hasCompass = await FlutterCompass.events != null;
-      // 初始化传感器
-      accelerometerEvents.listen((event) {
-        // 用于确保传感器正常工作
-      });
+      if (_hasCompass) {
+        _compassSubscription = FlutterCompass.events!.listen((event) {
+          if (mounted && event.heading != null) {
+            setState(() {
+              _direction = (-event.heading! - 90) * (math.pi / 180);
+            });
+          }
+        });
+      }
       if (mounted) {
         setState(() {});
       }
@@ -137,6 +148,8 @@ class _GuidePageState extends State<GuidePage> {
   @override
   void dispose() {
     _controller?.dispose();
+    _accelerometerSubscription?.cancel();
+    _compassSubscription?.cancel();
     super.dispose();
   }
 
@@ -234,14 +247,15 @@ class _GuidePageState extends State<GuidePage> {
               );
             },
           ),
-          Positioned(
-            top: MediaQuery.of(context).padding.top,
-            left: 16,
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
-              onPressed: () => Navigator.of(context).pop(),
+          if (!widget.isEmbedded)
+            Positioned(
+              top: MediaQuery.of(context).padding.top,
+              left: 16,
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
             ),
-          ),
         ],
       ),
     );
